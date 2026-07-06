@@ -110,6 +110,12 @@ openssl rand -hex 8       # MW_UPGRADE_KEY
 The script decrypts secrets into process-scoped environment variables and then
 calls `docker compose`.  Plaintext values never touch disk.
 
+On Windows, if repository defaults were initialized with
+`..\Initialize-DockerRepo.ps1`, `Start-Wiki.ps1` also reads effective
+`TestContainerContext` / `TestContainerHost` values from
+`..\Get-DockerRepoConfig.ps1` and applies them as process-scoped Docker
+environment variables before invoking Compose.
+
 ---
 
 ### Linux / macOS: secrets via .env file

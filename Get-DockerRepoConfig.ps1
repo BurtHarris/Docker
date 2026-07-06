@@ -59,24 +59,40 @@ function Get-RegistryValue {
 $result         = [ordered]@{}
 $sourceMetadata = [ordered]@{}
 
+function Resolve-Value {
+    param(
+        [string]$PolicyValue,
+        [string]$UserValue,
+        [string]$DefaultValue
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($PolicyValue)) {
+        return [pscustomobject]@{
+            Value  = [string]$PolicyValue
+            Source = 'Policy'
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($UserValue)) {
+        return [pscustomobject]@{
+            Value  = [string]$UserValue
+            Source = 'User'
+        }
+    }
+
+    return [pscustomobject]@{
+        Value  = [string]$DefaultValue
+        Source = 'Default'
+    }
+}
+
 foreach ($name in $defaults.Keys) {
     $policyValue = Get-RegistryValue -Path $policyPath -Name $name
     $userValue   = Get-RegistryValue -Path $userPath -Name $name
 
-    if (-not [string]::IsNullOrWhiteSpace($policyValue)) {
-        $result[$name] = [string]$policyValue
-        $sourceMetadata[$name] = 'Policy'
-        continue
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($userValue)) {
-        $result[$name] = [string]$userValue
-        $sourceMetadata[$name] = 'User'
-        continue
-    }
-
-    $result[$name] = [string]$defaults[$name]
-    $sourceMetadata[$name] = 'Default'
+    $resolved = Resolve-Value -PolicyValue $policyValue -UserValue $userValue -DefaultValue $defaults[$name]
+    $result[$name] = $resolved.Value
+    $sourceMetadata[$name] = $resolved.Source
 }
 
 if ($IncludeMetadata) {

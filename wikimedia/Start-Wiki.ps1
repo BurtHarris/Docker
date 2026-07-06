@@ -77,6 +77,25 @@ if ($missing.Count -gt 0) {
 Write-Host 'Secrets decrypted and loaded.' -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
+# Apply repo-level Docker defaults (Windows registry user/policy)
+# ---------------------------------------------------------------------------
+$repoConfigScript = Join-Path (Split-Path $PSScriptRoot -Parent) 'Get-DockerRepoConfig.ps1'
+if (Test-Path -Path $repoConfigScript) {
+    $repoConfig = & $repoConfigScript
+    $dockerContext = $repoConfig.TestContainerContext
+
+    if (-not [string]::IsNullOrWhiteSpace($dockerContext)) {
+        [System.Environment]::SetEnvironmentVariable('DOCKER_CONTEXT', $dockerContext, 'Process')
+        Write-Host "Using DOCKER_CONTEXT from repo config: $dockerContext" -ForegroundColor DarkGray
+    }
+
+    if ($dockerContext -eq 'remote' -and -not [string]::IsNullOrWhiteSpace($repoConfig.TestContainerHost)) {
+        [System.Environment]::SetEnvironmentVariable('DOCKER_HOST', $repoConfig.TestContainerHost, 'Process')
+        Write-Host "Using DOCKER_HOST from repo config: $($repoConfig.TestContainerHost)" -ForegroundColor DarkGray
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Invoke docker compose
 # ---------------------------------------------------------------------------
 $cmdArgs = if ($Down) { @('down') } else { $ComposeArgs }

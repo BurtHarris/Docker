@@ -92,7 +92,7 @@ if ($TestContainerContext -eq 'remote' -and -not $PSBoundParameters.ContainsKey(
     }
 
     $defaultHost = $effective.TestContainerHost
-    $prompt      = 'Enter remote Docker host (for example tcp://host:2376)'
+    $prompt      = 'Enter remote Docker host (for example tcp://host:2376 for TLS, or tcp://host:2375 only on trusted networks)'
 
     if (-not [string]::IsNullOrWhiteSpace($defaultHost)) {
         $prompt = "$prompt (current: $defaultHost)"
@@ -103,6 +103,32 @@ if ($TestContainerContext -eq 'remote' -and -not $PSBoundParameters.ContainsKey(
 
 if ($TestContainerContext -ne 'remote') {
     $TestContainerHost = ''
+}
+
+if ($TestContainerContext -eq 'remote') {
+    if ([string]::IsNullOrWhiteSpace($TestContainerHost)) {
+        throw 'TestContainerHost cannot be empty when TestContainerContext is remote.'
+    }
+
+    $isValidHost = $false
+    if ($TestContainerHost -match '^npipe://.+$' -or $TestContainerHost -match '^unix://.+$') {
+        $isValidHost = $true
+    } else {
+        $uri = $null
+        if ([System.Uri]::TryCreate($TestContainerHost, [System.UriKind]::Absolute, [ref]$uri)) {
+            if ($uri.Scheme -eq 'tcp' -and -not [string]::IsNullOrWhiteSpace($uri.Host) -and $uri.Port -gt 0) {
+                $isValidHost = $true
+            }
+        }
+    }
+
+    if (-not $isValidHost) {
+        throw 'TestContainerHost must use tcp://<host>:<port>, npipe://..., or unix://... format.'
+    }
+
+    if ($TestContainerHost -match '^tcp://[^:]+:2375$') {
+        Write-Warning 'INSECURE: tcp://*:2375 transmits data unencrypted. Use TLS on port 2376 unless on an isolated trusted network.'
+    }
 }
 
 if ($null -eq (Get-Item -Path $userPath -ErrorAction SilentlyContinue)) {
