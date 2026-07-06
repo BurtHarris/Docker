@@ -73,6 +73,7 @@ function Set-VaultSecret {
 
     $cred = [Windows.Security.Credentials.PasswordCredential]::new(
         $resource, $Key, $plain)
+    $plain = $null   # clear plaintext from memory as soon as possible
     if ($existing) { $vault.Remove($existing) }
     $vault.Add($cred)
     Write-Host "  $Key stored." -ForegroundColor Green

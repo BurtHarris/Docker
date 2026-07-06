@@ -16,6 +16,10 @@
     setup-secrets.ps1.  Default: "mywiki"
 .PARAMETER ComposeArgs
     Arguments forwarded to docker compose.  Default: "up -d"
+    Note: individual arguments must not contain spaces; quoted compound values
+    (e.g. --label "key=value with spaces") are not supported by this parameter.
+    For complex invocations, call docker compose directly after running this
+    script once to load secrets, or set the env vars manually.
 .PARAMETER Down
     Convenience flag — equivalent to -ComposeArgs "down"
 .EXAMPLE
@@ -66,6 +70,7 @@ foreach ($key in $secretKeys) {
     try {
         $value = Get-VaultSecret $key
         [System.Environment]::SetEnvironmentVariable($key, $value, 'Process')
+        $value = $null   # clear plaintext from memory as soon as possible
     } catch {
         $missing += $key
     }

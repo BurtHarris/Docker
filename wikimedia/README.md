@@ -70,10 +70,10 @@ vault at runtime.
 #### Start / stop the stack
 
 ```powershell
-.\start.ps1                             # docker compose up -d
+.\start.ps1                                # docker compose up -d
 .\start.ps1 -ComposeArgs "up -d --build"  # rebuild first
-.\start.ps1 -Down                       # docker compose down
-.\start.ps1 -WikiName companywiki       # multi-wiki
+.\start.ps1 -Down                          # docker compose down
+.\start.ps1 -WikiName companywiki          # multi-wiki
 ```
 
 ---
