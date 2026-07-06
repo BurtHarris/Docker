@@ -17,10 +17,70 @@ both local development and self-hosted production deployments.
 | `.env.example` | Template for required environment variables |
 | `config/php-wikimedia.ini` | PHP tunables copied into the image at build time |
 | `LocalSettings.example.php` | Annotated MediaWiki configuration template |
+| `setup-secrets.ps1` | **Windows 11** — store secrets in Windows Credential Manager |
+| `start.ps1` | **Windows 11** — load secrets and start the stack |
 
 ## Quick start (development)
 
-### 1. Copy and fill in the environment file
+### Platform choice: how to handle secrets
+
+| Platform | Recommended approach |
+|---|---|
+| Linux / macOS | `.env` file (never committed) |
+| **Windows 11** | **Windows Credential Manager** via `setup-secrets.ps1` + `start.ps1` |
+
+Both approaches feed the same environment variables to `docker compose`, so all
+other steps below are identical.
+
+---
+
+### Windows 11: secrets via Credential Manager
+
+The PowerShell scripts store the three sensitive values (`DB_PASSWORD`,
+`MW_SECRET_KEY`, `MW_UPGRADE_KEY`) in the **Windows Credential Manager
+PasswordVault**.  They are DPAPI-encrypted at rest and accessible only to your
+Windows user account on this machine — nothing secret is ever written to disk as
+plaintext.
+
+#### One-time setup
+
+```powershell
+# Store secrets (prompts interactively)
+.\setup-secrets.ps1
+
+# To update secrets later, or for a differently-named wiki:
+.\setup-secrets.ps1 -Force
+.\setup-secrets.ps1 -WikiName companywiki
+```
+
+When prompted, generate values with:
+
+```powershell
+# Requires Git-for-Windows / OpenSSL in PATH, or use WSL:
+openssl rand -base64 24   # DB_PASSWORD
+openssl rand -hex 32      # MW_SECRET_KEY
+openssl rand -hex 8       # MW_UPGRADE_KEY
+```
+
+Then copy `.env.example` to `.env` and fill in the **non-sensitive** fields only
+(WIKI_NAME, DB_NAME, DB_USER, MW_SITE_SERVER, DEV_PORT) — leave the three
+password / key placeholders in place; `start.ps1` will override them from the
+vault at runtime.
+
+#### Start / stop the stack
+
+```powershell
+.\start.ps1                             # docker compose up -d
+.\start.ps1 -ComposeArgs "up -d --build"  # rebuild first
+.\start.ps1 -Down                       # docker compose down
+.\start.ps1 -WikiName companywiki       # multi-wiki
+```
+
+---
+
+### Linux / macOS: secrets via .env file
+
+#### 1. Copy and fill in the environment file
 
 ```bash
 cp .env.example .env
@@ -34,7 +94,7 @@ MW_SECRET_KEY=<output of: openssl rand -hex 32>
 MW_UPGRADE_KEY=<output of: openssl rand -hex 8>
 ```
 
-### 2. Build and start the stack
+#### 2. Build and start the stack
 
 ```bash
 docker compose up -d --build
@@ -43,7 +103,9 @@ docker compose up -d --build
 The wiki will be accessible at <http://localhost:8080> once the database health
 check passes (usually 30–60 seconds).
 
-### 3. Run the installer
+---
+
+### Run the installer (both platforms)
 
 **Option A — Web installer (recommended for first time):**
 
@@ -77,7 +139,7 @@ docker compose cp mediawiki:/var/www/html/LocalSettings.php ./LocalSettings.php
 Then add the `getenv()` calls from `LocalSettings.example.php` so passwords
 are never stored in the file.
 
-### 4. (Optional) Customise LocalSettings.php
+### (Optional) Customise LocalSettings.php
 
 Use `LocalSettings.example.php` as a reference.  Key settings:
 
