@@ -33,3 +33,27 @@ docker compose up -d        # start the stack
 docker compose logs -f      # watch logs
 docker compose down         # stop
 ```
+
+## Windows developer initialization (repo-level defaults)
+
+For Windows developer machines, initialize local repository defaults once:
+
+```powershell
+.\Initialize-DockerRepo.ps1
+```
+
+This cmdlet prompts for defaults such as where test containers should be
+deployed, then stores personal values in:
+
+- `HKCU\Software\BurtHarris\Docker`
+
+Effective settings are read with:
+
+```powershell
+.\Get-DockerRepoConfig.ps1
+```
+
+Policy enforcement is transparent: values defined in
+`HKLM\SOFTWARE\Policies\BurtHarris\Docker` automatically override user values.
+Scripts can call `.\Get-DockerRepoConfig.ps1` to consume effective settings
+without implementing policy logic themselves.
