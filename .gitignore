@@ -1,0 +1,25 @@
+# Environment / secrets – never commit real credentials
+.env
+
+# MediaWiki runtime files that may contain secrets
+LocalSettings.php
+
+# Database dumps and backups
+*.sql
+*.sql.gz
+*.tar.gz
+*.db
+*.sqlite
+
+# Editor / OS artefacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Compiled / generated artefacts that should not be tracked
+*.log
+*.pid
