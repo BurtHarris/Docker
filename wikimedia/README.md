@@ -17,8 +17,10 @@ both local development and self-hosted production deployments.
 | `.env.example` | Template for required environment variables |
 | `config/php-wikimedia.ini` | PHP tunables copied into the image at build time |
 | `LocalSettings.example.php` | Annotated MediaWiki configuration template |
-| `setup-secrets.ps1` | **Windows 11** — store secrets in Windows Credential Manager |
-| `start.ps1` | **Windows 11** — load secrets and start the stack |
+| `New-WikiKey.ps1` | **Windows 11** — create personal encryption key, export trust marker |
+| `Set-WikiSecrets.ps1` | **Windows 11** — CMS-encrypt secrets with your personal key |
+| `Start-Wiki.ps1` | **Windows 11** — decrypt secrets at runtime, start the stack |
+| `trust/` | Public encryption certificates (trust markers) — safe to commit |
 
 ## Quick start (development)
 
@@ -27,54 +29,86 @@ both local development and self-hosted production deployments.
 | Platform | Recommended approach |
 |---|---|
 | Linux / macOS | `.env` file (never committed) |
-| **Windows 11** | **Windows Credential Manager** via `setup-secrets.ps1` + `start.ps1` |
+| **Windows 11** | **Personal encryption key + CMS** via the three PowerShell scripts below |
 
-Both approaches feed the same environment variables to `docker compose`, so all
-other steps below are identical.
+Both approaches feed the same environment variables to `docker compose`, so
+all installer steps further down are identical.
 
 ---
 
-### Windows 11: secrets via Credential Manager
+### Windows 11: PKI-based secret storage
 
-The PowerShell scripts store the three sensitive values (`DB_PASSWORD`,
-`MW_SECRET_KEY`, `MW_UPGRADE_KEY`) in the **Windows Credential Manager
-PasswordVault**.  They are DPAPI-encrypted at rest and accessible only to your
-Windows user account on this machine — nothing secret is ever written to disk as
-plaintext.
+The three sensitive values (`DB_PASSWORD`, `MW_SECRET_KEY`, `MW_UPGRADE_KEY`)
+are protected by a personal RSA key that lives in the Windows certificate store.
 
-#### One-time setup
-
-```powershell
-# Store secrets (prompts interactively)
-.\setup-secrets.ps1
-
-# To update secrets later, or for a differently-named wiki:
-.\setup-secrets.ps1 -Force
-.\setup-secrets.ps1 -WikiName companywiki
+```
+New-WikiKey.ps1          generate key → private key in Cert store
+                                       public cert exported to trust/  ← commit this
+Set-WikiSecrets.ps1      encrypt secrets → secrets/*.cms  ← gitignored, stays on disk
+Start-Wiki.ps1           decrypt → process env vars → docker compose
 ```
 
-When prompted, generate values with:
+#### Security properties
+
+| Property | How it is achieved |
+|---|---|
+| Secrets never stored as plaintext | `Protect-CmsMessage` (CMS/PKCS#7 envelope) |
+| Decryption requires your private key | Key stored in `Cert:\CurrentUser\My`, protected by DPAPI / TPM |
+| Trust can be verified | `.cer` trust marker committed to repo; anyone can see *who* can supply secrets |
+| Secrets never appear in Docker image layers | Passed as process env vars, not build args |
+
+#### Step 1 — Generate your personal key (once per machine)
 
 ```powershell
-# Requires Git-for-Windows / OpenSSL in PATH, or use WSL:
+.\New-WikiKey.ps1
+```
+
+This creates an RSA-3072 self-signed certificate in your Windows certificate
+store and exports the public half to `trust/wiki-mywiki-encrypt.cer`.
+Commit the `.cer` file — it is not a secret.
+
+```powershell
+# For a differently-named wiki:
+.\New-WikiKey.ps1 -WikiName companywiki
+```
+
+#### Step 2 — Encrypt and store secrets (once, or when rotating)
+
+```powershell
+.\Set-WikiSecrets.ps1
+```
+
+Prompts for each secret and writes CMS-encrypted ciphertext to
+`secrets/<KEY>.cms`.  The `secrets/` directory is gitignored.
+
+```powershell
+.\Set-WikiSecrets.ps1 -Force   # replace existing encrypted files
+```
+
+Then copy `.env.example` to `.env` and fill in the **non-sensitive** fields
+only (WIKI_NAME, DB_NAME, DB_USER, MW_SITE_SERVER, DEV_PORT).  Leave the three
+password / key placeholders in place — `Start-Wiki.ps1` overrides them at
+runtime.
+
+Generate values with (Git-for-Windows / WSL / OpenSSL required):
+
+```powershell
 openssl rand -base64 24   # DB_PASSWORD
 openssl rand -hex 32      # MW_SECRET_KEY
 openssl rand -hex 8       # MW_UPGRADE_KEY
 ```
 
-Then copy `.env.example` to `.env` and fill in the **non-sensitive** fields only
-(WIKI_NAME, DB_NAME, DB_USER, MW_SITE_SERVER, DEV_PORT) — leave the three
-password / key placeholders in place; `start.ps1` will override them from the
-vault at runtime.
-
-#### Start / stop the stack
+#### Step 3 — Start / stop the stack
 
 ```powershell
-.\start.ps1                                # docker compose up -d
-.\start.ps1 -ComposeArgs "up -d --build"  # rebuild first
-.\start.ps1 -Down                          # docker compose down
-.\start.ps1 -WikiName companywiki          # multi-wiki
+.\Start-Wiki.ps1                             # docker compose up -d
+.\Start-Wiki.ps1 -ComposeArgs up, -d, --build  # rebuild first
+.\Start-Wiki.ps1 -Down                       # docker compose down
+.\Start-Wiki.ps1 -WikiName companywiki       # multi-wiki
 ```
+
+The script decrypts secrets into process-scoped environment variables and then
+calls `docker compose`.  Plaintext values never touch disk.
 
 ---
 

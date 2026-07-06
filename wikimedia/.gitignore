@@ -1,0 +1,9 @@
+# Personal CMS-encrypted secret files — do NOT commit.
+# These files are encrypted to the personal key in your Windows certificate
+# store (Cert:\CurrentUser\My).  They are only readable by the private-key
+# holder on this machine.
+secrets/
+
+# Private key exports — never commit
+*.pfx
+*.p12
