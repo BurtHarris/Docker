@@ -1,0 +1,38 @@
+# Keep the build context small — only send files that are actually COPYed
+# into the image.
+
+# Secrets — never send into the build context
+.env
+.env.*
+!.env.example
+
+# Runtime data (bind-mount targets, not baked into image)
+images/
+data/
+instance/
+
+# LocalSettings contains secrets; mount it at runtime, not build time
+LocalSettings.php
+
+# Git metadata
+.git
+.gitignore
+
+# Documentation / prose
+*.md
+!README.md
+
+# Compose files (not needed inside the image)
+docker-compose*.yml
+
+# OS / editor artefacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Logs and test artefacts
+*.log

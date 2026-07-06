@@ -1,0 +1,29 @@
+# docker-compose.prod.yml — Production overrides
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Assumes a reverse proxy (Caddy, Traefik, nginx) running in its own Docker
+# network handles TLS termination and routes traffic to the mediawiki service.
+
+services:
+  mediawiki:
+    # Mount LocalSettings.php read-only to prevent accidental edits.
+    volumes:
+      - ./LocalSettings.php:/var/www/html/LocalSettings.php:ro
+    # Join the reverse-proxy network so traffic can be forwarded to this service.
+    networks:
+      - internal_net
+      - proxy_net
+
+  database:
+    # Isolate the DB from the proxy network – it only needs internal_net.
+    networks:
+      - internal_net
+
+networks:
+  internal_net: {}
+  # Declare the external proxy network so Compose knows it exists.
+  # Create it beforehand with: docker network create proxy_net
+  proxy_net:
+    external: true

@@ -1,0 +1,16 @@
+# docker-compose.override.yml — Development overrides
+#
+# Docker Compose automatically merges this file with docker-compose.yml when
+# you run `docker compose up` locally.  Do NOT use this file in production.
+#
+# Production deployments:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  mediawiki:
+    # Expose the wiki directly on a host port for local development.
+    ports:
+      - "${DEV_PORT:-8080}:80"
+    # Mount LocalSettings.php without :ro so you can edit and reload quickly.
+    volumes:
+      - ./LocalSettings.php:/var/www/html/LocalSettings.php
